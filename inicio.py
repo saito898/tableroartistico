@@ -1,3 +1,4 @@
+
 import base64
 import io
 import streamlit as st
@@ -7,800 +8,578 @@ from openai import OpenAI
 from streamlit_drawable_canvas import st_canvas
 
 
-# =========================================================
-# CONFIGURACIÓN GENERAL
-# =========================================================
+# --------------------------------------------------
+# CONFIGURACIÓN DE LA PÁGINA
+# --------------------------------------------------
 
 st.set_page_config(
-    page_title="Atelier | Laboratorio de Arte",
+    page_title="Atelier de las Musas",
     page_icon="🎨",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
 
-# =========================================================
-# ESTADO DE SESIÓN
-# =========================================================
-
-if "artwork_bytes" not in st.session_state:
-    st.session_state.artwork_bytes = None
-
-if "last_style" not in st.session_state:
-    st.session_state.last_style = ""
-
-if "last_prompt" not in st.session_state:
-    st.session_state.last_prompt = ""
-
-
-# =========================================================
+# --------------------------------------------------
 # ESTILOS VISUALES
-# =========================================================
+# --------------------------------------------------
 
-st.markdown(
-    """
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=IM+Fell+English&display=swap');
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap');
 
-    :root {
-        --cream: #f4eddf;
-        --paper: #fffaf0;
-        --ink: #35271d;
-        --gold: #ad8746;
-        --gold-light: #d9bd80;
-        --wine: #6f3036;
-        --olive: #536344;
-    }
+.stApp {
+    background:
+        radial-gradient(ellipse at top, #383025 0%, #201c18 48%, #151310 100%);
+    color: #eee3cf;
+}
 
-    .stApp {
-        background-color: var(--cream);
-        background-image:
-            radial-gradient(
-                ellipse at 50% 0%,
-                rgba(255,255,255,0.85),
-                transparent 65%
-            );
-        color: var(--ink);
-    }
+header[data-testid="stHeader"] {
+    background: transparent;
+}
 
-    [data-testid="stHeader"] {
-        background: transparent;
-    }
+#MainMenu {
+    visibility: hidden;
+}
 
-    [data-testid="stToolbar"] {
-        visibility: hidden;
-    }
+footer {
+    visibility: hidden;
+}
 
-    #MainMenu {
-        visibility: hidden;
-    }
+section[data-testid="stSidebar"] {
+    display: none;
+}
 
-    footer {
-        visibility: hidden;
-    }
+.block-container {
+    max-width: 1200px;
+    padding-top: 2rem;
+    padding-bottom: 3rem;
+}
 
-    html, body, [class*="css"] {
-        font-family: 'Cormorant Garamond', Georgia, serif;
-        color: var(--ink);
-    }
+/* TÍTULO PRINCIPAL */
 
-    h1, h2, h3 {
-        font-family: 'IM Fell English', Georgia, serif !important;
-        color: var(--ink) !important;
-        font-weight: 400 !important;
-    }
+.atelier-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: clamp(42px, 6vw, 68px);
+    font-weight: 500;
+    color: #e7d0a0;
+    text-align: center;
+    letter-spacing: 3px;
+    line-height: 1.1;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 15px rgba(0, 0, 0, 0.35);
+}
 
-    p, label, span {
-        color: var(--ink);
-    }
+.ornament {
+    font-size: 27px;
+    color: #bd9b60;
+    text-align: center;
+    margin: 8px 0 12px 0;
+    letter-spacing: 8px;
+}
 
-    .atelier-header {
-        text-align: center;
-        padding: 30px 15px 25px 15px;
-        margin-bottom: 25px;
-        border-top: 2px solid var(--gold);
-        border-bottom: 1px solid var(--gold);
-        position: relative;
-    }
+.atelier-subtitle {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 17px;
+    font-style: italic;
+    color: #d5c4a7;
+    text-align: center;
+    margin-bottom: 35px;
+}
 
-    .atelier-eyebrow {
-        font-family: 'Cormorant Garamond', serif;
-        font-size: 13px;
-        letter-spacing: 5px;
-        text-transform: uppercase;
-        color: var(--wine);
-        margin-bottom: 12px;
-    }
+/* ENCABEZADOS */
 
-    .atelier-title {
-        font-family: 'IM Fell English', Georgia, serif;
-        font-size: clamp(36px, 6vw, 66px);
-        line-height: 1.05;
-        color: #4b3024;
-        letter-spacing: 1px;
-    }
+h1, h2, h3 {
+    font-family: 'Cormorant Garamond', Georgia, serif !important;
+    color: #e7d0a0 !important;
+}
 
-    .atelier-subtitle {
-        font-size: 19px;
-        font-style: italic;
-        color: #78644c;
-        margin-top: 14px;
-    }
+h2 {
+    font-size: 30px !important;
+}
 
-    .ornament {
-        color: var(--gold);
-        font-size: 25px;
-        letter-spacing: 8px;
-        margin: 8px 0;
-    }
+h3 {
+    font-size: 24px !important;
+}
 
-    .section-kicker {
-        font-size: 12px;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-        color: var(--wine);
-        font-weight: 700;
-        margin-bottom: 5px;
-    }
+/* TEXTO GENERAL */
 
-    .section-title {
-        font-family: 'IM Fell English', Georgia, serif;
-        font-size: 30px;
-        color: #493225;
-        margin-bottom: 8px;
-    }
+p, label, .stMarkdown {
+    color: #eee3cf;
+}
 
-    .section-description {
-        font-size: 17px;
-        color: #796753;
-        margin-bottom: 18px;
-    }
+div[data-testid="stMarkdownContainer"] p {
+    color: #eee3cf;
+}
 
-    [data-testid="stVerticalBlockBorderWrapper"] {
-        background: rgba(255, 250, 240, 0.86);
-        border: 1px solid #d9c7a6 !important;
-        border-radius: 4px !important;
-        box-shadow: 0 5px 18px rgba(73, 50, 37, 0.055);
-    }
+/* TARJETAS */
 
-    [data-testid="stVerticalBlockBorderWrapper"] > div {
-        border-radius: 4px;
-    }
+.panel {
+    background: rgba(50, 43, 34, 0.82);
+    border: 1px solid rgba(190, 158, 100, 0.45);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.18);
+}
 
-    .card-heading {
-        font-family: 'IM Fell English', Georgia, serif;
-        font-size: 24px;
-        color: #51382a;
-        margin-bottom: 5px;
-    }
+.panel-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 27px;
+    color: #e7d0a0;
+    margin-bottom: 6px;
+}
 
-    .card-caption {
-        color: #88745a;
-        font-size: 15px;
-        font-style: italic;
-        margin-bottom: 15px;
-    }
+/* BOTONES */
 
-    .stButton > button {
-        background: #6f3036;
-        color: #fff8e9;
-        border: 1px solid #6f3036;
-        border-radius: 2px;
-        padding: 11px 18px;
-        font-family: 'Cormorant Garamond', Georgia, serif;
-        font-size: 18px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-    }
+.stButton > button,
+.stDownloadButton > button {
+    background: linear-gradient(135deg, #b99a65, #947343);
+    color: #211b13;
+    border: 1px solid #d8bd88;
+    border-radius: 9px;
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 0.65rem 1.2rem;
+    transition: all 0.2s ease;
+}
 
-    .stButton > button p {
-        color: inherit !important;
-    }
+.stButton > button:hover,
+.stDownloadButton > button:hover {
+    background: linear-gradient(135deg, #d6bc88, #b99a65);
+    color: #17120c;
+    border-color: #ead6ad;
+}
 
-    .stButton > button:hover {
-        background: #8a4548;
-        color: white;
-        border-color: #8a4548;
-        box-shadow: 0 4px 12px rgba(111, 48, 54, 0.2);
-    }
+/* CAMPOS DE TEXTO */
 
-    .stTextInput input,
-    .stTextArea textarea {
-        background: #fffdf7;
-        border: 1px solid #cdbb98;
-        border-radius: 2px;
-        color: #35271d;
-        font-family: 'Cormorant Garamond', Georgia, serif;
-        font-size: 17px;
-    }
+.stTextInput input,
+.stTextArea textarea,
+.stSelectbox div[data-baseweb="select"] {
+    background-color: #302920;
+    color: #f4e8d2;
+    border-color: #9c8051;
+    border-radius: 8px;
+}
 
-    [data-testid="stWidgetLabel"] p {
-        color: #594332 !important;
-        font-size: 16px;
-    }
+/* OPCIONES DE ESTILO */
 
-    .result-frame {
-        background: #fffaf0;
-        border: 1px solid var(--gold);
-        padding: 10px;
-        box-shadow: 0 6px 22px rgba(53, 39, 29, 0.12);
-    }
+div[role="radiogroup"] label {
+    color: #eee3cf !important;
+}
 
-    .result-caption {
-        text-align: center;
-        font-family: 'IM Fell English', Georgia, serif;
-        color: #755a39;
-        font-size: 21px;
-        font-style: italic;
-        margin-top: 12px;
-    }
+/* LIENZO */
 
-    .museum-label {
-        border-top: 1px solid #d8c7a5;
-        margin-top: 22px;
-        padding-top: 13px;
-        text-align: center;
-        color: #897657;
-        font-size: 13px;
-        letter-spacing: 3px;
-        text-transform: uppercase;
-    }
+div[data-testid="stCanvas"] {
+    border: 1px solid #b99a65;
+    border-radius: 8px;
+    overflow: hidden;
+}
 
-    [data-testid="stAlert"] {
-        border-radius: 3px;
-    }
+/* SEPARADORES */
 
-    /* Opciones de estilo */
+hr {
+    border-color: rgba(190, 158, 100, 0.35);
+}
 
-    div[role="radiogroup"] {
-        gap: 8px;
-    }
+/* AVISOS */
 
-    div[role="radiogroup"] label {
-        background: #fffaf0;
-        border: 1px solid #d9c7a6;
-        border-radius: 3px;
-        padding: 8px 12px;
-    }
+div[data-testid="stAlert"] {
+    border-radius: 10px;
+}
 
-    div[role="radiogroup"] label:hover {
-        border-color: #ad8746;
-    }
+/* PIE DE PÁGINA */
 
-    /* Ocultar elementos de navegación lateral */
-
-    [data-testid="stSidebar"] {
-        display: none;
-    }
-
-    @media (max-width: 700px) {
-        .atelier-header {
-            padding: 20px 5px;
-        }
-
-        .atelier-eyebrow {
-            letter-spacing: 2px;
-        }
-
-        .atelier-subtitle {
-            font-size: 17px;
-        }
-
-        .section-title {
-            font-size: 26px;
-        }
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+.footer-art {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #bca98a;
+    font-size: 14px;
+    text-align: center;
+    margin-top: 40px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(190, 158, 100, 0.3);
+}
+</style>
+""", unsafe_allow_html=True)
 
 
-# =========================================================
-# ENCABEZADO DEL ATELIER
-# =========================================================
+# --------------------------------------------------
+# ENCABEZADO
+# --------------------------------------------------
 
-st.markdown(
-    """
-    <div class="atelier-header">
-        <div class="atelier-eyebrow">
-            Estudio de creación artística
-        </div>
-
-        <div class="atelier-title">
-            Atelier de las Musas
-        </div>
-
-        <div class="ornament">❦ ✧ ❦</div>
-
-        <div class="atelier-subtitle">
-            Todo gran cuadro comienza con un primer trazo.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div class="atelier-title">Atelier de las Musas</div>
+<div class="ornament">❦ ✧ ❦</div>
+<div class="atelier-subtitle">
+    Todo gran cuadro comienza con un primer trazo.
+</div>
+""", unsafe_allow_html=True)
 
 
-# =========================================================
+# --------------------------------------------------
 # INTRODUCCIÓN
-# =========================================================
+# --------------------------------------------------
 
-st.markdown(
-    """
-    <div style="text-align:center; max-width:760px;
-                margin:0 auto 28px auto;">
-        <div class="section-kicker">Tu imaginación, nuestra paleta</div>
-        <div class="section-title">Crea una obra a tu manera</div>
-        <div class="section-description">
-            Dibuja una idea, escoge una corriente artística y deja
-            que la inteligencia artificial la transforme en una
-            obra inspirada en la historia del arte.
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div style="text-align:center; max-width:760px; margin:0 auto 30px auto;">
+    <p style="font-size:17px; line-height:1.8; color:#d9cbb4;">
+        Bienvenido a tu taller de creación artística. Dibuja una idea,
+        elige una corriente pictórica y permite que la inteligencia
+        artificial transforme tu boceto en una obra de arte.
+    </p>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("---")
 
 
-# =========================================================
-# TARJETA 1: DIBUJO
-# =========================================================
+# --------------------------------------------------
+# ESTILOS ARTÍSTICOS
+# --------------------------------------------------
 
-col_canvas, col_options = st.columns([1.08, 0.92], gap="large")
-
-with col_canvas:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="section-kicker">01 — El boceto</div>
-            <div class="card-heading">El primer trazo</div>
-            <div class="card-caption">
-                No necesitas dibujar a la perfección.
-                La imaginación es suficiente.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        stroke_width = st.slider(
-            "Grosor del pincel",
-            min_value=1,
-            max_value=20,
-            value=4
-        )
-
-        stroke_color = st.color_picker(
-            "Color del trazo",
-            value="#35271D"
-        )
-
-        canvas_result = st_canvas(
-            fill_color="rgba(173, 135, 70, 0.10)",
-            stroke_width=stroke_width,
-            stroke_color=stroke_color,
-            background_color="#FFFCF5",
-            height=340,
-            width=460,
-            drawing_mode="freedraw",
-            key="atelier_canvas",
-            display_toolbar=True,
-            update_streamlit=True
-        )
-
-        st.caption(
-            "Puedes usar las herramientas del lienzo para dibujar "
-            "y borrar tus trazos."
-        )
-
-
-# =========================================================
-# MOVIMIENTOS ARTÍSTICOS
-# =========================================================
-
-ART_STYLES = {
-    "Renacimiento": {
-        "description": "Armonía, perspectiva y belleza clásica.",
-        "prompt": (
-            "Renacimiento europeo: composición equilibrada, "
-            "perspectiva lineal precisa, anatomía estudiada, "
-            "volúmenes modelados con delicados claroscuros, "
-            "pigmentos tradicionales, ambiente clásico y "
-            "acabado de pintura al óleo de museo."
-        )
-    },
-    "Romanticismo": {
-        "description": "Emoción, naturaleza y dramatismo.",
-        "prompt": (
-            "Romanticismo del siglo XIX: emoción intensa, "
-            "naturaleza sublime, atmósfera dramática, "
-            "contrastes de luz, cielos expresivos, pincelada "
-            "pictórica y paleta evocadora."
-        )
-    },
-    "Cubismo": {
-        "description": "Geometría, planos y perspectivas múltiples.",
-        "prompt": (
-            "Cubismo: descomposición geométrica de las formas, "
-            "múltiples perspectivas simultáneas, planos "
-            "fragmentados, composición estructural y paleta "
-            "artística coherente. El sujeto original debe "
-            "seguir siendo reconocible."
-        )
-    },
-    "Puntillismo": {
-        "description": "Miles de puntos construyen la imagen.",
-        "prompt": (
-            "Puntillismo: construir toda la imagen mediante "
-            "pequeños puntos de colores diferenciados, "
-            "mezcla óptica, luz vibrante, gran precisión "
-            "y una composición pictórica rica en detalles."
-        )
-    },
-    "Impresionismo": {
-        "description": "Luz cambiante y pinceladas vivas.",
-        "prompt": (
-            "Impresionismo: pinceladas visibles y sueltas, "
-            "luz natural, colores luminosos, atmósfera "
-            "fugaz, sombras coloreadas y sensación de "
-            "una escena capturada en un instante."
-        )
-    },
-    "Barroco": {
-        "description": "Contrastes intensos y teatralidad.",
-        "prompt": (
-            "Barroco europeo: claroscuro intenso, iluminación "
-            "teatral, composición dinámica, sombras profundas, "
-            "riqueza de texturas, colores profundos y acabado "
-            "de pintura al óleo."
-        )
-    },
-    "Surrealismo": {
-        "description": "Sueños, símbolos y mundos inesperados.",
-        "prompt": (
-            "Surrealismo: atmósfera onírica, asociaciones "
-            "inesperadas, detalles imaginativos, espacios "
-            "sugerentes y apariencia de sueño. Mantener "
-            "como referencia el sujeto del boceto."
-        )
-    },
-    "Art Nouveau": {
-        "description": "Líneas orgánicas y ornamentos elegantes.",
-        "prompt": (
-            "Art Nouveau: líneas curvas y fluidas, motivos "
-            "botánicos, composición ornamental, contornos "
-            "elegantes, detalles decorativos y paleta "
-            "sofisticada inspirada en el arte de finales "
-            "del siglo XIX."
-        )
-    },
-    "Acuarela": {
-        "description": "Pigmentos transparentes y suaves.",
-        "prompt": (
-            "Pintura en acuarela: pigmentos translúcidos, "
-            "lavados de color, bordes suaves, transparencias, "
-            "textura de papel artístico y una composición "
-            "delicada hecha a mano."
-        )
-    }
+ESTILOS = {
+    "Renacimiento": (
+        "Transforma el boceto en una pintura inspirada en el Renacimiento. "
+        "Utiliza composición equilibrada, anatomía estudiada, perspectiva "
+        "lineal, iluminación natural, detalles minuciosos y una paleta "
+        "de tonos tierra, ocres y dorados. Apariencia de pintura al óleo "
+        "clásica de los siglos XV y XVI."
+    ),
+    "Romanticismo": (
+        "Transforma el boceto en una pintura romántica del siglo XIX. "
+        "Emplea una atmósfera emotiva, paisajes dramáticos, contrastes "
+        "de luz, colores intensos y una sensación de grandeza, misterio "
+        "y emoción humana."
+    ),
+    "Cubismo": (
+        "Reinterpreta el boceto mediante el cubismo. Descompón las formas "
+        "en figuras geométricas, planos fragmentados y perspectivas "
+        "simultáneas. Usa una composición estructurada y una paleta "
+        "artística coherente."
+    ),
+    "Puntillismo": (
+        "Convierte el boceto en una obra puntillista. Construye las formas "
+        "mediante pequeños puntos de color cuidadosamente distribuidos, "
+        "con mezclas ópticas, luminosidad y una composición equilibrada."
+    ),
+    "Impresionismo": (
+        "Transforma el boceto en una pintura impresionista. Utiliza "
+        "pinceladas visibles y sueltas, luz cambiante, colores vibrantes, "
+        "sombras cromáticas y una atmósfera espontánea."
+    ),
+    "Barroco": (
+        "Convierte el boceto en una pintura barroca. Usa claroscuro "
+        "dramático, iluminación teatral, sombras profundas, riqueza "
+        "de texturas, movimiento y una composición intensa."
+    ),
+    "Surrealismo": (
+        "Reinterpreta el boceto como una obra surrealista. Combina "
+        "elementos reconocibles con escenas oníricas, asociaciones "
+        "inesperadas, perspectivas imposibles y una atmósfera misteriosa."
+    ),
+    "Art Nouveau": (
+        "Transforma el boceto en una obra inspirada en el Art Nouveau. "
+        "Utiliza líneas orgánicas y sinuosas, motivos vegetales, detalles "
+        "ornamentales, elegancia decorativa y colores armoniosos."
+    ),
+    "Acuarela": (
+        "Convierte el boceto en una ilustración de acuarela. Emplea "
+        "transparencias, pigmentos diluidos, bordes suaves, manchas "
+        "espontáneas, textura de papel y una paleta delicada."
+    )
 }
 
 
-with col_options:
-    with st.container(border=True):
-        st.markdown(
-            """
-            <div class="section-kicker">02 — La inspiración</div>
-            <div class="card-heading">Escoge tu movimiento</div>
-            <div class="card-caption">
-                Cada corriente cuenta una historia diferente.
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+# --------------------------------------------------
+# DISTRIBUCIÓN PRINCIPAL
+# --------------------------------------------------
 
-        selected_style = st.radio(
-            "¿Qué lenguaje artístico tendrá tu obra?",
-            options=list(ART_STYLES.keys()),
-            index=0,
-            label_visibility="collapsed"
-        )
-
-        st.markdown(
-            f"""
-            <div style="
-                background:#f4eddf;
-                border-left:3px solid #ad8746;
-                padding:16px;
-                margin:12px 0 18px 0;
-            ">
-                <div style="
-                    color:#6f3036;
-                    font-size:12px;
-                    letter-spacing:2px;
-                    text-transform:uppercase;
-                ">
-                    Movimiento seleccionado
-                </div>
-                <div style="
-                    font-family:'IM Fell English',Georgia,serif;
-                    font-size:27px;
-                    color:#493225;
-                    margin:6px 0;
-                ">
-                    {selected_style}
-                </div>
-                <div style="
-                    font-size:16px;
-                    color:#796753;
-                    font-style:italic;
-                ">
-                    {ART_STYLES[selected_style]["description"]}
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        extra_instructions = st.text_area(
-            "Detalles opcionales para la obra",
-            placeholder=(
-                "Ej.: una paleta azul y dorada, un jardín al "
-                "atardecer, una atmósfera misteriosa..."
-            ),
-            height=110
-        )
-
-        st.caption(
-            "La IA utilizará tu dibujo como referencia y conservará "
-            "su idea principal siempre que sea posible."
-        )
+col_dibujo, col_opciones = st.columns([1.15, 0.85], gap="large")
 
 
-# =========================================================
-# TARJETA 3: CREAR OBRA
-# =========================================================
+# --------------------------------------------------
+# COLUMNA IZQUIERDA: LIENZO
+# --------------------------------------------------
 
-st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+with col_dibujo:
 
-with st.container(border=True):
-    st.markdown(
-        """
-        <div style="text-align:center; padding:8px 8px 2px 8px;">
-            <div class="section-kicker">03 — La transformación</div>
-            <div class="section-title">Dale vida a tu boceto</div>
-            <div class="section-description">
-                Tu dibujo será reinterpretado como una obra artística.
-            </div>
+    st.markdown("""
+    <div class="panel-title">I. El primer trazo</div>
+    <p style="color:#cbb99a;">
+        Dibuja libremente en el lienzo. No necesitas ser un experto:
+        tu imaginación es el punto de partida.
+    </p>
+    """, unsafe_allow_html=True)
+
+    color_pincel = st.color_picker(
+        "Color del pincel",
+        value="#302820"
+    )
+
+    grosor_pincel = st.slider(
+        "Grosor del pincel",
+        min_value=1,
+        max_value=30,
+        value=5
+    )
+
+    fondo_lienzo = st.selectbox(
+        "Fondo del lienzo",
+        ["Marfil", "Blanco", "Negro"],
+        index=0
+    )
+
+    colores_fondo = {
+        "Marfil": "#F5EBD8",
+        "Blanco": "#FFFFFF",
+        "Negro": "#24211D"
+    }
+
+    lienzo = st_canvas(
+        fill_color="rgba(255, 255, 255, 0)",
+        stroke_width=grosor_pincel,
+        stroke_color=color_pincel,
+        background_color=colores_fondo[fondo_lienzo],
+        height=380,
+        width=600,
+        drawing_mode="freedraw",
+        key="atelier_canvas",
+        display_toolbar=True
+    )
+
+    st.caption(
+        "Consejo: dibuja las formas principales y deja que el estilo "
+        "artístico aporte los detalles."
+    )
+
+
+# --------------------------------------------------
+# COLUMNA DERECHA: OPCIONES
+# --------------------------------------------------
+
+with col_opciones:
+
+    st.markdown("""
+    <div class="panel-title">II. El alma de la obra</div>
+    <p style="color:#cbb99a;">
+        Elige la corriente artística que dará vida a tu creación.
+    </p>
+    """, unsafe_allow_html=True)
+
+    estilo_elegido = st.radio(
+        "Corriente artística",
+        options=list(ESTILOS.keys()),
+        index=0
+    )
+
+    st.markdown(f"""
+    <div class="panel">
+        <div style="font-family:'Cormorant Garamond',serif;
+                    font-size:23px;color:#e7d0a0;margin-bottom:8px;">
+            {estilo_elegido}
         </div>
-        """,
-        unsafe_allow_html=True
+        <p style="font-size:14px;line-height:1.7;color:#d9cbb4;">
+            {ESTILOS[estilo_elegido]}
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    instrucciones = st.text_area(
+        "Tu visión artística (opcional)",
+        placeholder=(
+            "Ejemplo: quiero un cielo dorado, flores alrededor "
+            "y una atmósfera mágica..."
+        ),
+        height=120
     )
 
-    api_key = st.text_input(
-        "Clave de API de OpenAI",
-        type="password",
-        placeholder="Introduce tu API key para generar la imagen"
-    )
-
-    generate_button = st.button(
-        "✦ Transformar en obra de arte ✦",
-        use_container_width=True
-    )
+    st.markdown("""
+    <p style="font-size:13px;color:#bca98a;">
+        Puedes añadir colores, ambientes, objetos o detalles que
+        quieras ver en la obra final.
+    </p>
+    """, unsafe_allow_html=True)
 
 
-# =========================================================
-# GENERACIÓN DE IMAGEN
-# =========================================================
+# --------------------------------------------------
+# GENERACIÓN DE LA OBRA
+# --------------------------------------------------
 
-if generate_button:
+st.markdown("---")
+st.markdown(
+    '<div class="panel-title" style="text-align:center;">'
+    'III. Dar vida a la obra</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown("""
+<p style="text-align:center;color:#d9cbb4;">
+    Cuando estés listo, convierte tu boceto en una creación artística.
+</p>
+""", unsafe_allow_html=True)
+
+api_key = st.text_input(
+    "Clave API de OpenAI",
+    type="password",
+    help="La clave se utiliza para realizar la generación de la imagen."
+)
+
+generar = st.button(
+    "✧ Transformar mi boceto ✧",
+    use_container_width=True
+)
+
+
+if generar:
 
     if not api_key.strip():
-        st.warning(
-            "Introduce tu API key de OpenAI antes de generar la obra."
+        st.error(
+            "Introduce tu clave API de OpenAI para poder generar la obra."
         )
+        st.stop()
 
-    elif canvas_result.image_data is None:
-        st.warning(
-            "Primero dibuja algo en el lienzo."
-        )
+    if lienzo.image_data is None:
+        st.error("No se pudo leer el lienzo. Intenta dibujar de nuevo.")
+        st.stop()
 
-    else:
-        canvas_objects = (
-            canvas_result.json_data.get("objects", [])
-            if canvas_result.json_data
-            else []
-        )
+    imagen_array = lienzo.image_data
 
-        if len(canvas_objects) == 0:
-            st.warning(
-                "El lienzo parece estar vacío. Haz al menos un trazo "
-                "antes de continuar."
+    if not np.any(imagen_array[:, :, 3] > 0):
+        st.error("Primero debes dibujar algo en el lienzo.")
+        st.stop()
+
+    try:
+        with st.spinner(
+            "Las musas están trabajando en tu obra... "
+            "Esto puede tardar un momento."
+        ):
+
+            # Convertir el lienzo a imagen PNG
+            imagen_original = Image.fromarray(
+                imagen_array.astype("uint8"),
+                mode="RGBA"
             )
 
-        else:
-            try:
-                with st.spinner(
-                    "El atelier está preparando tus pigmentos "
-                    "y pintando la obra..."
-                ):
-                    # Convertir el lienzo a una imagen PNG.
-                    canvas_array = np.array(
-                        canvas_result.image_data
-                    ).astype("uint8")
+            buffer_original = io.BytesIO()
+            imagen_original.save(buffer_original, format="PNG")
+            buffer_original.seek(0)
 
-                    sketch_image = Image.fromarray(
-                        canvas_array
-                    ).convert("RGB")
+            # Crear la instrucción artística
+            prompt = f"""
+            Usa la imagen proporcionada como boceto de referencia.
+            Conserva la idea principal, la composición y los elementos
+            reconocibles del dibujo original.
 
-                    image_buffer = io.BytesIO()
-                    sketch_image.save(
-                        image_buffer,
-                        format="PNG"
-                    )
+            Transforma el boceto en una obra de arte acabada.
 
-                    image_bytes = image_buffer.getvalue()
+            Estilo artístico seleccionado: {estilo_elegido}.
 
-                    style_prompt = ART_STYLES[selected_style]["prompt"]
+            Dirección artística:
+            {ESTILOS[estilo_elegido]}
 
-                    prompt = f"""
-                    Transforma la imagen de referencia dibujada por
-                    el usuario en una obra de arte terminada.
+            Instrucciones adicionales del usuario:
+            {instrucciones.strip() if instrucciones.strip() else
+            "No hay instrucciones adicionales."}
 
-                    MOVIMIENTO ARTÍSTICO ELEGIDO:
-                    {selected_style}
+            El resultado debe parecer una obra artística terminada,
+            no una fotografía del dibujo ni una captura de pantalla.
+            No incluyas texto, firmas, marcas de agua ni interfaces.
+            """
 
-                    CARACTERÍSTICAS VISUALES DEL MOVIMIENTO:
-                    {style_prompt}
+            cliente = OpenAI(api_key=api_key.strip())
 
-                    INSTRUCCIONES IMPORTANTES:
-                    - Utiliza el boceto proporcionado como referencia
-                      principal del contenido.
-                    - Conserva el sujeto, la idea y la composición
-                      general del dibujo tanto como sea posible.
-                    - Interpreta las líneas simples y conviértelas en
-                      una imagen artística completa y coherente.
-                    - Aplica las técnicas, texturas, colores,
-                      iluminación y composición del movimiento
-                      artístico elegido.
-                    - Añade detalles visuales apropiados cuando
-                      ayuden a desarrollar la idea original.
-                    - El resultado debe parecer una obra de arte
-                      cuidadosamente creada, no un filtro aplicado
-                      sobre el boceto.
-                    - No incluyas textos, letras, marcas de agua,
-                      interfaces ni marcos de aplicación.
-                    - Presenta una sola obra terminada, con una
-                      composición clara y visualmente atractiva.
+            # Enviar la imagen y solicitar la transformación
+            respuesta = cliente.images.edit(
+                model="gpt-image-1",
+                image=("boceto.png", buffer_original, "image/png"),
+                prompt=prompt,
+                size="1024x1024"
+            )
 
-                    INSTRUCCIONES ADICIONALES DEL USUARIO:
-                    {extra_instructions.strip() or
-                     "Sin instrucciones adicionales."}
-                    """
+            imagen_b64 = respuesta.data[0].b64_json
 
-                    client = OpenAI(
-                        api_key=api_key.strip()
-                    )
-
-                    result = client.images.edit(
-                        model="gpt-image-2.5-sunburst",
-                        image=(
-                            "boceto.png",
-                            image_bytes,
-                            "image/png"
-                        ),
-                        prompt=prompt,
-                        size="1024x1024",
-                        quality="high",
-                        output_format="png"
-                    )
-
-                    if not result.data or not result.data[0].b64_json:
-                        raise RuntimeError(
-                            "La API no devolvió una imagen."
-                        )
-
-                    generated_bytes = base64.b64decode(
-                        result.data[0].b64_json
-                    )
-
-                    # Guardar el resultado en la sesión.
-                    st.session_state.artwork_bytes = generated_bytes
-                    st.session_state.last_style = selected_style
-                    st.session_state.last_prompt = prompt
-
-            except Exception as error:
+            if not imagen_b64:
                 st.error(
-                    "No fue posible generar la obra. "
-                    "Revisa tu clave, tu conexión y el acceso "
-                    "a la API de generación de imágenes."
+                    "La API no devolvió una imagen. Intenta de nuevo."
                 )
-                st.code(str(error))
+                st.stop()
+
+            imagen_bytes = base64.b64decode(imagen_b64)
+            imagen_final = Image.open(
+                io.BytesIO(imagen_bytes)
+            ).convert("RGB")
+
+            st.session_state["atelier_resultado"] = imagen_final
+            st.session_state["atelier_estilo"] = estilo_elegido
+
+    except Exception as error:
+        st.error(
+            "No se pudo generar la imagen. Revisa la clave API, "
+            "la conexión, el acceso al modelo y la configuración "
+            "de facturación de tu cuenta de OpenAI."
+        )
+
+        st.code(str(error))
 
 
-# =========================================================
-# MOSTRAR OBRA GENERADA
-# =========================================================
+# --------------------------------------------------
+# MOSTRAR LA OBRA GENERADA
+# --------------------------------------------------
 
-if st.session_state.artwork_bytes:
-    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+if "atelier_resultado" in st.session_state:
+
+    st.markdown("---")
+
+    st.markdown("""
+    <div class="panel-title" style="text-align:center;">
+        ✧ Tu obra ha cobrado vida ✧
+    </div>
+    """, unsafe_allow_html=True)
 
     st.markdown(
-        """
-        <div style="text-align:center; margin-bottom:20px;">
-            <div class="section-kicker">La obra está terminada</div>
-            <div class="section-title">Tu creación artística</div>
-            <div class="section-description">
-                Una idea, reinterpretada a través de la historia del arte.
-            </div>
-        </div>
-        """,
+        f"<p style='text-align:center;color:#d9cbb4;'>"
+        f"Estilo: {st.session_state['atelier_estilo']}"
+        f"</p>",
         unsafe_allow_html=True
     )
 
-    with st.container(border=True):
-        artwork = Image.open(
-            io.BytesIO(st.session_state.artwork_bytes)
-        ).convert("RGB")
+    col_espacio_izq, col_resultado, col_espacio_der = st.columns(
+        [0.5, 2, 0.5]
+    )
 
+    with col_resultado:
         st.image(
-            artwork,
+            st.session_state["atelier_resultado"],
             use_container_width=True
         )
 
-        st.markdown(
-            f"""
-            <div class="result-caption">
-                {st.session_state.last_style}
-            </div>
-            <div class="museum-label">
-                Atelier de las Musas · Obra creada con inteligencia artificial
-            </div>
-            """,
-            unsafe_allow_html=True
+        buffer_descarga = io.BytesIO()
+        st.session_state["atelier_resultado"].save(
+            buffer_descarga,
+            format="PNG"
         )
+        buffer_descarga.seek(0)
 
         st.download_button(
-            label="↓ Descargar mi obra en PNG",
-            data=st.session_state.artwork_bytes,
-            file_name=(
-                "obra_"
-                + st.session_state.last_style.lower().replace(" ", "_")
-                + ".png"
-            ),
+            label="⬇ Descargar mi obra",
+            data=buffer_descarga.getvalue(),
+            file_name="mi_obra_atelier.png",
             mime="image/png",
             use_container_width=True
         )
 
 
-# =========================================================
+# --------------------------------------------------
 # PIE DE PÁGINA
-# =========================================================
+# --------------------------------------------------
 
-st.markdown(
-    """
-    <div style="
-        text-align:center;
-        margin-top:38px;
-        padding:20px 10px;
-        border-top:1px solid #d9c7a6;
-        color:#897657;
-    ">
-        <div style="
-            font-family:'IM Fell English',Georgia,serif;
-            font-size:22px;
-            font-style:italic;
-        ">
-            Ars longa, vita brevis
-        </div>
-        <div style="
-            font-size:12px;
-            letter-spacing:3px;
-            margin-top:8px;
-        ">
-            ATELIER DE LAS MUSAS · ESTUDIO DE ARTE
-        </div>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<div class="footer-art">
+    ❦ Atelier de las Musas ❦<br>
+    <span style="font-size:12px;">
+        El arte comienza con la imaginación.
+    </span>
+</div>
+""", unsafe_allow_html=True)
